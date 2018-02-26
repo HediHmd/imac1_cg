@@ -4,10 +4,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <math.h>
 
 /* Dimensions de la fenêtre */
 static unsigned int WINDOW_WIDTH = 800;
 static unsigned int WINDOW_HEIGHT = 800;
+
+/* Nombre de segments pour former le cercle */
+static const unsigned int NB_SEG= 120;
+static const float PI = 3.1415926535897932384626433832795;
+
 
 /* Nombre de bits par pixel de la fenêtre */
 static const unsigned int BIT_PER_PIXEL = 32;
@@ -119,9 +125,62 @@ void resizeViewport() {
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluOrtho2D(-1., 1., -1., 1.);
+    gluOrtho2D(-4., 4., -3., 3.);
     SDL_SetVideoMode(WINDOW_WIDTH, WINDOW_HEIGHT, BIT_PER_PIXEL, SDL_OPENGL | SDL_RESIZABLE);
 }
+
+void drawSquare(float r, float g, float b){
+    glBegin(GL_QUADS);
+    glColor3f(r, g, b);
+    glVertex2f(-0.5, 0.5);
+    glVertex2f(0.5, 0.5);
+    glVertex2f(0.5,-0.5);
+    glVertex2f(-0.5,-0.5);
+    glEnd();
+}
+
+void drawLandmark(){
+    glBegin(GL_LINES);
+    glColor3f(1.0, 0.0, 0.0);
+    glVertex2f(-1, 0);
+    glVertex2f(1, 0);
+    glColor3f(0.0, 1.0, 0.0);
+    glVertex2f(0,1);
+    glVertex2f(0,-1);
+    glEnd();
+
+        /*Dessiner points repere*/
+    glPointSize(5);
+    glBegin(GL_POINTS);
+    for (int i = -4; i <= 4; i++)
+    {
+        glColor3f(1.0, 0.0, 0.0);
+        glVertex2f(i, 0);
+    }
+    for (int j = -3; j <= 3; j++)
+    {
+        glColor3f(0.0, 1.0, 0.0);
+        glVertex2f(0, j);
+    }
+        glEnd();
+
+}
+
+// Pour remplir le cercle : GL_POLYGON
+void drawCircle(float r, float g, float b){
+    int i;
+    float angle;
+    angle = 2*PI/NB_SEG;
+
+    glBegin(GL_LINE_STRIP);
+    glColor3f(r, g, b);
+    for (i = 0; i <= NB_SEG; i++)
+    {
+        glVertex2f(cos(angle*i), sin(angle*i));
+    }
+    glEnd();
+}
+
 
 int main(int argc, char** argv) {
 
@@ -138,15 +197,22 @@ int main(int argc, char** argv) {
     }
 
     SDL_WM_SetCaption("TP2", NULL);
-
+    resizeViewport();
     glClearColor(0.1, 0.1, 0.1, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
+    
+    glMatrixMode(GL_MODELVIEW);
+
+
 
     /* On créé une première primitive par défaut */
     PrimitiveList primitives = allocPrimitive(GL_LINE_STRIP);
 
     int loop = 1;
+    int mode = 0;
     float x, y;
+    x=0;
+    y=0;
 
     /* Boucle d'affichage */
     while(loop) {
@@ -156,7 +222,29 @@ int main(int argc, char** argv) {
         
         /* Code de dessin */
         glClear(GL_COLOR_BUFFER_BIT); // Toujours commencer par clear le buffer
+        glLoadIdentity();
+
         drawPrimitives(primitives);
+        drawSquare(1.0,1.0,1.0);
+        drawLandmark();
+        drawCircle(0.0,0.0,1.0);
+        glTranslatef(1,2,0);
+        drawCircle(1.0,0.4,0.4);
+
+        glLoadIdentity();
+        glTranslatef(2,0,0);
+        glRotatef(45, 0.0,0.0,1.0);
+        drawSquare(1.0,0.0,0.0);
+
+        glLoadIdentity();
+        glRotatef(45, 0.0,0.0,1.0);
+        glTranslatef(2,0,0);
+        drawSquare(1.0,0.0,1.0);
+
+        glLoadIdentity();
+        glTranslatef(x,y,0);
+        drawSquare(1.0,1.0,0.0);
+
 
         /* Boucle traitant les evenements */
         SDL_Event e;
@@ -178,17 +266,25 @@ int main(int argc, char** argv) {
 
                 case SDL_MOUSEBUTTONUP:
                     /* Transformation des coordonnées du clic souris en coordonnées OpenGL */
-                    x = -1 + 2. * e.button.x / WINDOW_WIDTH;
-                    y = -(-1 + 2. * e.button.y / WINDOW_HEIGHT);
+                    x = -4 + 8. * e.button.x / WINDOW_WIDTH;
+                    y = -(-3 + 6. * e.button.y / WINDOW_HEIGHT);
                     /* On ajoute un nouveau point à la liste de la primitive courante */
                     addPointToList(allocPoint(x, y, 255, 255, 255), &(primitives->points));
                     if(e.button.button == SDL_BUTTON_RIGHT){
+                        mode=0;
                         primitives->primitiveType = GL_LINE_LOOP;
                         //primitives->points = primitives->next->points;
                         addPrimitive(allocPrimitive(GL_LINE_STRIP),&primitives);
-                    
                     }
                     break;
+
+
+                case SDL_MOUSEMOTION:
+                    if(mode==1){
+                        x=e.motion.x;
+                        y=e.motion.y;
+                    }
+                break;
 
                 case SDL_VIDEORESIZE:
                     WINDOW_WIDTH = e.resize.w;
