@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <math.h>
+#include <time.h>
 
 /* Dimensions de la fenêtre */
 static unsigned int WINDOW_WIDTH = 800;
@@ -14,12 +15,13 @@ static unsigned int WINDOW_HEIGHT = 800;
 static const unsigned int NB_SEG= 120;
 static const float PI = 3.1415926535897932384626433832795;
 
-
 /* Nombre de bits par pixel de la fenêtre */
 static const unsigned int BIT_PER_PIXEL = 32;
 
 /* Nombre minimal de millisecondes separant le rendu de deux images */
 static const Uint32 FRAMERATE_MILLISECONDS = 1000 / 60;
+
+unsigned int lastTime = 0, currentTime;
 
 typedef struct Point {
     float x, y;
@@ -163,6 +165,7 @@ void drawLandmark(){
         glVertex2f(0, j);
     }
         glEnd();
+}
 
 }
 
@@ -200,19 +203,26 @@ int main(int argc, char** argv) {
     resizeViewport();
     glClearColor(0.1, 0.1, 0.1, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
-    
     glMatrixMode(GL_MODELVIEW);
-
-
 
     /* On créé une première primitive par défaut */
     PrimitiveList primitives = allocPrimitive(GL_LINE_STRIP);
 
     int loop = 1;
-    int mode = 0;
     float x, y;
     x=0;
     y=0;
+
+    //Carré Drag & drop
+    float xCarre, yCarre, rotateCarre;
+    int mode = 0;
+    xCarre=0;
+    yCarre=0;
+    rotateCarre=0;
+
+    //Cercle qui se balade
+    float xRond=0;
+    float yRond=0;
 
     /* Boucle d'affichage */
     while(loop) {
@@ -225,27 +235,45 @@ int main(int argc, char** argv) {
         glLoadIdentity();
 
         drawPrimitives(primitives);
+        //Carré blanc centre
         drawSquare(1.0,1.0,1.0);
+        //Reperes
         drawLandmark();
+        //Cercle bleu centre
         drawCircle(0.0,0.0,1.0);
+        //Cercle orange haut droite
         glTranslatef(1,2,0);
         drawCircle(1.0,0.4,0.4);
 
+        // Carré rouge
         glLoadIdentity();
         glTranslatef(2,0,0);
         glRotatef(45, 0.0,0.0,1.0);
         drawSquare(1.0,0.0,0.0);
 
+        // Carré Violet
         glLoadIdentity();
         glRotatef(45, 0.0,0.0,1.0);
         glTranslatef(2,0,0);
         drawSquare(1.0,0.0,1.0);
 
+        // Carré Jaune
         glLoadIdentity();
-        glTranslatef(x,y,0);
-        drawSquare(1.0,1.0,0.0);
+        glTranslatef(xCarre,yCarre,0);
+        glRotatef(rotateCarre,0.0,0.0,1.0);
+        drawSquare(0.0,0.0,1.0);
 
-
+        // Cercle qui se ballade
+        currentTime = SDL_GetTicks();
+        glLoadIdentity();
+        if (currentTime > lastTime + 1000){
+        xRond = rand()%(4 - (-4)) + (-4);
+        yRond = rand()%(3 - (-3)) + (-3);
+        lastTime = currentTime;
+        }
+        glTranslatef(xRond,yRond,0);
+        drawCircle(1.0,1.0,0.0);
+        
         /* Boucle traitant les evenements */
         SDL_Event e;
         while(SDL_PollEvent(&e)){
@@ -262,27 +290,35 @@ int main(int argc, char** argv) {
                 /* Touche clavier */
                 case SDL_KEYDOWN:
                     printf("touche pressée (code = %d)\n", e.key.keysym.sym);
-                    break;
+                break;
 
                 case SDL_MOUSEBUTTONUP:
                     /* Transformation des coordonnées du clic souris en coordonnées OpenGL */
                     x = -4 + 8. * e.button.x / WINDOW_WIDTH;
                     y = -(-3 + 6. * e.button.y / WINDOW_HEIGHT);
+                    xCarre = -4 + 8. * e.button.x / WINDOW_WIDTH;
+                    yCarre = -(-3 + 6. * e.button.y / WINDOW_HEIGHT);
                     /* On ajoute un nouveau point à la liste de la primitive courante */
                     addPointToList(allocPoint(x, y, 255, 255, 255), &(primitives->points));
                     if(e.button.button == SDL_BUTTON_RIGHT){
-                        mode=0;
                         primitives->primitiveType = GL_LINE_LOOP;
                         //primitives->points = primitives->next->points;
                         addPrimitive(allocPrimitive(GL_LINE_STRIP),&primitives);
                     }
-                    break;
+                    mode=0;
+                break;
 
+                case SDL_MOUSEBUTTONDOWN:
+                    if(e.button.button == SDL_BUTTON_RIGHT){
+                        mode=1;
+                    }
+                break;
 
                 case SDL_MOUSEMOTION:
                     if(mode==1){
-                        x=e.motion.x;
-                        y=e.motion.y;
+                        xCarre= -4 + 8. * e.motion.x / WINDOW_WIDTH;
+                        yCarre=-(-3 + 6. * e.motion.y / WINDOW_HEIGHT);
+                        rotateCarre++;
                     }
                 break;
 
@@ -290,9 +326,11 @@ int main(int argc, char** argv) {
                     WINDOW_WIDTH = e.resize.w;
                     WINDOW_HEIGHT = e.resize.h;
                     resizeViewport();
+                    glMatrixMode(GL_MODELVIEW);
+                break;
 
                 default:
-                    break;
+                break;
             }
         }
 
